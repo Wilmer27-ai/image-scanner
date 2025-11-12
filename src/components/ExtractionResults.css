@@ -136,6 +136,38 @@
   white-space: nowrap;
 }
 
+.actions {
+  text-align: center;
+  width: 60px;
+}
+
+.copy-row-button {
+  background: #e2e8f0;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #4a5568;
+}
+
+.copy-row-button:hover {
+  background: #4a90e2;
+  color: white;
+  transform: scale(1.05);
+}
+
+.copy-row-button:active {
+  transform: scale(0.95);
+}
+
+.copy-row-button svg {
+  display: block;
+}
+
 .copy-preview {
   padding: 1rem;
   background: #f7fafc;

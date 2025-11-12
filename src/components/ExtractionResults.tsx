@@ -26,6 +26,16 @@ export const ExtractionResults: React.FC<ExtractionResultsProps> = ({
     return [header, separator, ...rows].join('\n');
   };
 
+  const copyRowToClipboard = async (product: ExtractedProduct) => {
+    const rowText = `${product.productName || ''}\t${product.skuNumber || ''}\t${product.upc || ''}`;
+    try {
+      await navigator.clipboard.writeText(rowText);
+      // Optional: Show a brief success indicator
+    } catch (err) {
+      console.error('Failed to copy row:', err);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="extraction-results loading">
@@ -81,6 +91,7 @@ export const ExtractionResults: React.FC<ExtractionResultsProps> = ({
               <th>Product Name</th>
               <th>SKU Number</th>
               <th>UPC</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -89,6 +100,18 @@ export const ExtractionResults: React.FC<ExtractionResultsProps> = ({
                 <td className="product-name">{product.productName || '-'}</td>
                 <td className="sku-number">{product.skuNumber || '-'}</td>
                 <td className="upc">{product.upc || '-'}</td>
+                <td className="actions">
+                  <button 
+                    onClick={() => copyRowToClipboard(product)}
+                    className="copy-row-button"
+                    title="Copy this row"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
