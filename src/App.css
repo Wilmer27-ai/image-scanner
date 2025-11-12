@@ -1,0 +1,115 @@
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.app-header h1 {
+  color: #2d3748;
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.app-subtitle {
+  color: #718096;
+  font-size: 1.1rem;
+  margin: 0;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-main {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.instructions {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: 8px;
+}
+
+.instructions h3 {
+  margin: 0 0 1rem 0;
+  color: #0c4a6e;
+  font-size: 1.1rem;
+}
+
+.instructions ol {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #0c4a6e;
+}
+
+.instructions li {
+  margin-bottom: 0.5rem;
+}
+
+.app-footer {
+  text-align: center;
+  padding: 2rem 0;
+  color: #718096;
+  font-size: 0.9rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.app-footer p {
+  margin: 0.5rem 0;
+}
+
+.api-note {
+  color: #4a5568 !important;
+  font-style: italic;
+}
+
+.ocr-failed-message {
+  text-align: center;
+  padding: 2rem;
+  margin: 2rem 0;
+  background: #fff3cd;
+  border: 2px dashed #ffc107;
+  border-radius: 8px;
+}
+
+.ocr-failed-message p:first-child {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #856404;
+  margin: 0 0 0.5rem 0;
+}
+
+.ocr-failed-message p:nth-child(2) {
+  color: #856404;
+  margin: 0 0 1.5rem 0;
+}
+
+.manual-entry-button {
+  padding: 0.75rem 1.5rem;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.manual-entry-button:hover {
+  background: #357abd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
