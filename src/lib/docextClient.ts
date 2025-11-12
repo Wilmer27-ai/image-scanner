@@ -147,7 +147,7 @@ class DocextClient {
       }
 
       // Extract product name (any text that's not just numbers and is long enough)
-      // Remove SKU and UPC numbers first
+      // Remove SKU and UPC numbers first, but preserve product codes like 60SX2, M64, L48, etc.
       let cleanLine = line
         .replace(/\b(122\d{10}|11\d{11})\b/g, '')  // Remove SKU
         .replace(/\b([89]\d{12,13}|[45]\d{12,13})\b/g, '')  // Remove UPC
@@ -156,8 +156,9 @@ class DocextClient {
 
       // If what's left looks like a product name (has letters and is long enough)
       if (cleanLine.length > 5 && /[A-Za-z]/.test(cleanLine) && !skipWords.includes(upperLine)) {
-        // Remove any remaining standalone numbers at the start/end
-        cleanLine = cleanLine.replace(/^\d+\s*/, '').replace(/\s*\d+$/, '').trim();
+        // Don't remove numbers at the end - they might be product codes/sizes like 60SX2, M64, etc.
+        // Only remove standalone numbers at the very start
+        cleanLine = cleanLine.replace(/^\d+\s+/, '').trim();
         
         if (cleanLine.length > 5) {
           allProductNames.push(cleanLine);
