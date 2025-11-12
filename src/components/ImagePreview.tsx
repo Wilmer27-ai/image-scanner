@@ -8,6 +8,7 @@ interface ImagePreviewProps {
 
 export const ImagePreview: React.FC<ImagePreviewProps> = ({ file, onRemove }) => {
   const [imageUrl, setImageUrl] = React.useState<string>('');
+  const [rotation, setRotation] = React.useState<number>(0);
 
   React.useEffect(() => {
     if (file.type.startsWith('image/')) {
@@ -17,16 +18,29 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ file, onRemove }) =>
     }
   }, [file]);
 
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
   return (
     <div className="image-preview-container">
       <div className="image-preview-header">
         <h3>Preview</h3>
-        <button onClick={onRemove} className="remove-button" title="Remove file">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+        <div className="preview-actions">
+          {file.type.startsWith('image/') && (
+            <button onClick={handleRotate} className="rotate-button" title="Rotate image">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+            </button>
+          )}
+          <button onClick={onRemove} className="remove-button" title="Remove file">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
       
       <div className="preview-content">
@@ -35,6 +49,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ file, onRemove }) =>
             src={imageUrl} 
             alt="Document preview" 
             className="preview-image"
+            style={{ transform: `rotate(${rotation}deg)` }}
           />
         ) : (
           <div className="pdf-preview">
