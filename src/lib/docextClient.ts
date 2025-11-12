@@ -93,75 +93,71 @@ class DocextClient {
     const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
 
     console.log('Parsing lines:', lines.length);
-    console.log('Raw text:', text.substring(0, 500)); // First 500 chars for debugging
+    console.log('Raw text:', text.substring(0, 1000));
 
-    // Extract ALL SKUs and UPCs from the entire text
-    const skuPattern = /\b(122\d{10}|11\d{11})\b/g;  // SKU: 122... or 11... followed by digits
-    const upcPattern = /\b([89]\d{12,13}|[45]\d{12,13})\b/g;  // UPC: starts with 8,9,4,5 + 12-13 digits
+    // SKU and UPC patterns
+    const skuPattern = /\b(122\d{10}|11\d{11})\b/g;
+    const upcPattern = /\b([89]\d{12,13}|[45]\d{12,13})\b/g;
 
-    // Find all SKUs and UPCs in order
     const allSkus: string[] = [];
     const allUpcs: string[] = [];
     const allProductNames: string[] = [];
 
-    // Words to skip (headers, not product names)
-    const skipWords = ['CHANGE', 'LOC ID', 'SKU NO', 'UPC', 'NAME', 'SHELF', 'DEPTH', 'NOF', 
-                       'TIER', 'NOTCH', 'GONDOLA', 'GONDOL', 'CATEGORY', 'DEPARTMENT', 'EPARTMENT',
-                       'VIEW BY', 'ELEMENT', 'STORE', 'STORE NA', 'HYPERMARKET', 'HYPERMA',
-                       'LOCATION', 'BRAND', 'PAPER'];
+    // Headers and labels to skip
+    const skipWords = [
+      'CHANGE', 'LOC ID', 'SKU NO', 'UPC', 'NAME', 'SHELF', 'DEPTH', 'DEPH', 'NOF', 
+      'TIER', 'NOTCH', 'GONDOLA', 'GONDOL', 'CATEGORY', 'DEPARTMENT', 'EPARTMENT',
+      'VIEW BY', 'ELEMENT', 'STORE', 'STORE NA', 'HYPERMARKET', 'HYPERMA', 'STO', 'HYP',
+      'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT'
+    ];
 
     // Process each line
     for (const line of lines) {
       const upperLine = line.toUpperCase();
       
-      // Skip if it's a header line or contains header keywords
+      // Skip headers and labels
       if (skipWords.some(word => upperLine.includes(word))) {
         continue;
       }
 
-      // Skip shelf markers and depth markers
-      if (upperLine.match(/^SHELF\/\d+/) || upperLine.match(/^DEPTH:\s*\d+/) || upperLine.match(/^NOTCH:\s*\d+/)) {
-        continue;
-      }
-      
-      // Skip lines that end with colons (labels like "Gondol:")
+      // Skip lines ending with colon
       if (line.trim().endsWith(':')) {
         continue;
       }
-      
-      // Skip very short lines (less than 3 characters)
-      if (line.trim().length < 3) {
+
+      // Skip very short lines
+      if (line.length < 5) {
         continue;
       }
 
-      // Extract SKU from this line
-      const skuMatch = line.match(skuPattern);
-      if (skuMatch) {
-        allSkus.push(...skuMatch);
+      // Extract SKUs from this line
+      const skuMatches = line.match(skuPattern);
+      if (skuMatches) {
+        allSkus.push(...skuMatches);
       }
 
-      // Extract UPC from this line
-      const upcMatch = line.match(upcPattern);
-      if (upcMatch) {
-        allUpcs.push(...upcMatch);
+      // Extract UPCs from this line
+      const upcMatches = line.match(upcPattern);
+      if (upcMatches) {
+        allUpcs.push(...upcMatches);
       }
 
-      // Extract product name (any text that's not just numbers and is long enough)
-      // Remove SKU and UPC numbers first, but preserve product codes like 60SX2, M64, L48, etc.
-      let cleanLine = line
-        .replace(/\b(122\d{10}|11\d{11})\b/g, '')  // Remove SKU
-        .replace(/\b([89]\d{12,13}|[45]\d{12,13})\b/g, '')  // Remove UPC
-        .replace(/\s+/g, ' ')  // Normalize spaces
-        .trim();
-
-      // If what's left looks like a product name (has letters and is long enough)
-      if (cleanLine.length > 5 && /[A-Za-z]/.test(cleanLine) && !skipWords.includes(upperLine)) {
-        // Don't remove numbers at the end - they might be product codes/sizes like 60SX2, M64, etc.
-        // Only remove standalone numbers at the very start
-        cleanLine = cleanLine.replace(/^\d+\s+/, '').trim();
+      // Extract product names (lines with letters but no SKU/UPC)
+      if (!skuMatches && !upcMatches && /[A-Za-z]{3,}/.test(line)) {
+        let cleanName = line
+          .replace(/\s+/g, ' ')
+          .replace(/^\d+\s+/, '')
+          .trim();
         
-        if (cleanLine.length > 5) {
-          allProductNames.push(cleanLine);
+        // Skip if it starts with depth marker
+        if (cleanName.toUpperCase().startsWith('DEPH') || 
+            cleanName.toUpperCase().startsWith('DEPTH') ||
+            cleanName.toUpperCase().startsWith('DER')) {
+          continue;
+        }
+        
+        if (cleanName.length > 5) {
+          allProductNames.push(cleanName);
         }
       }
     }
@@ -170,7 +166,7 @@ class DocextClient {
     console.log(`Found ${allUpcs.length} UPCs:`, allUpcs);
     console.log(`Found ${allProductNames.length} product names:`, allProductNames);
 
-    // Match them up in order (aligned as they appear in the document)
+    // Match them up in order
     const maxCount = Math.max(allSkus.length, allUpcs.length, allProductNames.length);
     
     for (let i = 0; i < maxCount; i++) {
@@ -181,10 +177,9 @@ class DocextClient {
       });
     }
 
-    console.log(`Final extracted products:`, products.length);
-    console.log('Sample products:', products.slice(0, 3));
+    console.log(`Final extracted products: ${products.length}`);
     
-    return products.slice(0, 100); // Allow up to 100 products
+    return products.slice(0, 100);
   }
 }
 
