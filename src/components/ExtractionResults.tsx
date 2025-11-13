@@ -18,12 +18,11 @@ export const ExtractionResults: React.FC<ExtractionResultsProps> = ({
   onCopyToClipboard
 }) => {
   const formatTableText = () => {
-    const header = "Product Name | SKU Number | UPC";
-    const separator = "---|---|---";
+    // Only show data rows for the preview (matching what gets copied)
     const rows = products.map(product => 
-      `${product.productName || ''} | ${product.skuNumber || ''} | ${product.upc || ''}`
+      `${product.productName || ''}\t${product.skuNumber || ''}\t${product.upc || ''}`
     );
-    return [header, separator, ...rows].join('\n');
+    return rows.join('\n');
   };
 
   const copyRowToClipboard = async (product: ExtractedProduct) => {
