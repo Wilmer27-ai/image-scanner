@@ -96,27 +96,54 @@ class DocextClient {
     console.log('Raw text:', text.substring(0, 1000));
 
     // SKU and UPC patterns - expanded to include more formats
-    const skuPattern = /\b(122\d{10}|11\d{11}|148\d{10}|146\d{10})\b/g;
-    const upcPattern = /\b([89]\d{12,13}|[45]\d{12,13})\b/g;
+    const skuPattern = /\b(122\d{10}|11\d{11}|148\d{10}|146\d{10}|143\d{10}|145\d{10})\b/g;
+    const upcPattern = /\b(\d{13,14})\b/g;
 
     const allSkus: string[] = [];
     const allUpcs: string[] = [];
     const allProductNames: string[] = [];
 
-    // Headers and labels to skip
+    // Headers and labels to skip - only skip if line is MOSTLY these words
     const skipWords = [
       'CHANGE', 'LOC ID', 'SKU NO', 'UPC', 'NAME', 'SHELF', 'DEPTH', 'DEPH', 'NOF',
       'TIER', 'NOTCH', 'GONDOLA', 'GONDOL', 'CATEGORY', 'DEPARTMENT', 'EPARTMENT',
       'VIEW BY', 'ELEMENT', 'STORE', 'STORE NA', 'HYPERMARKET', 'HYPERMA', 'STO', 'HYP',
-      'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT'
+      'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT', 'ARTMENT'
     ];
 
     // Process each line
     for (const line of lines) {
       const upperLine = line.toUpperCase();
 
-      // Skip headers and labels
-      if (skipWords.some(word => upperLine.includes(word))) {
+      // Skip headers and labels (but be more specific - check if line STARTS with or IS the header)
+      let isHeader = false;
+      for (const word of skipWords) {
+        if (upperLine === word || 
+            upperLine.startsWith(word + ':') || 
+            upperLine.startsWith(word + ' ') ||
+            upperLine.endsWith(' ' + word) ||
+            (upperLine.includes(':') && upperLine.includes(word))) {
+          isHeader = true;
+          break;
+        }
+      }
+      
+      if (isHeader) {
+        continue;
+      }
+
+      // Skip standalone category words that aren't part of product names
+      if (upperLine === 'CANNED' || upperLine === 'PET FOOD' || upperLine === 'FOOD' ||
+          upperLine === 'NT: CANNED' || upperLine === 'BY ELEMENT' || 
+          upperLine === 'LOC ID.' || upperLine === 'SKU NO.' ||
+          upperLine === 'MENT: CANNED' || upperLine.includes('... LOC ID') ||
+          upperLine === 'SEASONING' || upperLine.startsWith('SHELF/') || 
+          upperLine === 'HYPERMAR' || upperLine === 'HYPERMARKET') {
+        continue;
+      }
+      
+      // Skip lines that look like partial headers (end with colon + word)
+      if (/^[A-Z]{2,6}:\s*[A-Z\s]+$/.test(upperLine)) {
         continue;
       }
 
@@ -136,15 +163,31 @@ class DocextClient {
         allSkus.push(...skuMatches);
       }
 
-      // Extract UPCs from this line
+      // Extract UPCs from this line (but exclude SKUs)
       const upcMatches = line.match(upcPattern);
       if (upcMatches) {
-        allUpcs.push(...upcMatches);
+        // Only add UPCs that are NOT already identified as SKUs
+        const nonSkuUpcs = upcMatches.filter(upc => !skuMatches || !skuMatches.includes(upc));
+        allUpcs.push(...nonSkuUpcs);
       }
 
-      // Extract product names (lines with letters but no SKU/UPC)
-      if (!skuMatches && !upcMatches && /[A-Za-z]{3,}/.test(line)) {
-        let cleanName = line
+      // Extract product names (lines with letters, may or may not have SKU/UPC)
+      if (/[A-Za-z]{5,}/.test(line)) {
+        let cleanName = line;
+        
+        // Remove SKU and UPC from the line to get clean product name
+        if (skuMatches) {
+          skuMatches.forEach(sku => {
+            cleanName = cleanName.replace(sku, '');
+          });
+        }
+        if (upcMatches) {
+          upcMatches.forEach(upc => {
+            cleanName = cleanName.replace(upc, '');
+          });
+        }
+        
+        cleanName = cleanName
           .replace(/\s+/g, ' ')
           .replace(/^\d+\s+/, '')
           .trim();
@@ -153,6 +196,13 @@ class DocextClient {
         if (cleanName.toUpperCase().startsWith('DEPH') ||
           cleanName.toUpperCase().startsWith('DEPTH') ||
           cleanName.toUpperCase().startsWith('DER')) {
+          continue;
+        }
+        
+        // Skip if it looks like a shelf marker or partial header (contains ".." or is very short gibberish)
+        if (cleanName.includes('..') || 
+            /^[a-z]{3,6}\d*$/.test(cleanName.toLowerCase()) ||
+            cleanName.length < 4) {
           continue;
         }
 
