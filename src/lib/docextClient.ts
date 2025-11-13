@@ -79,7 +79,7 @@ class DocextClient {
 
     } catch (error) {
       console.error('OCR processing failed:', error);
-      
+
       return {
         products: [],
         confidence: 0,
@@ -95,8 +95,8 @@ class DocextClient {
     console.log('Parsing lines:', lines.length);
     console.log('Raw text:', text.substring(0, 1000));
 
-    // SKU and UPC patterns
-    const skuPattern = /\b(122\d{10}|11\d{11})\b/g;
+    // SKU and UPC patterns - expanded to include more formats
+    const skuPattern = /\b(122\d{10}|11\d{11}|148\d{10}|146\d{10})\b/g;
     const upcPattern = /\b([89]\d{12,13}|[45]\d{12,13})\b/g;
 
     const allSkus: string[] = [];
@@ -105,7 +105,7 @@ class DocextClient {
 
     // Headers and labels to skip
     const skipWords = [
-      'CHANGE', 'LOC ID', 'SKU NO', 'UPC', 'NAME', 'SHELF', 'DEPTH', 'DEPH', 'NOF', 
+      'CHANGE', 'LOC ID', 'SKU NO', 'UPC', 'NAME', 'SHELF', 'DEPTH', 'DEPH', 'NOF',
       'TIER', 'NOTCH', 'GONDOLA', 'GONDOL', 'CATEGORY', 'DEPARTMENT', 'EPARTMENT',
       'VIEW BY', 'ELEMENT', 'STORE', 'STORE NA', 'HYPERMARKET', 'HYPERMA', 'STO', 'HYP',
       'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT'
@@ -114,7 +114,7 @@ class DocextClient {
     // Process each line
     for (const line of lines) {
       const upperLine = line.toUpperCase();
-      
+
       // Skip headers and labels
       if (skipWords.some(word => upperLine.includes(word))) {
         continue;
@@ -148,14 +148,14 @@ class DocextClient {
           .replace(/\s+/g, ' ')
           .replace(/^\d+\s+/, '')
           .trim();
-        
+
         // Skip if it starts with depth marker
-        if (cleanName.toUpperCase().startsWith('DEPH') || 
-            cleanName.toUpperCase().startsWith('DEPTH') ||
-            cleanName.toUpperCase().startsWith('DER')) {
+        if (cleanName.toUpperCase().startsWith('DEPH') ||
+          cleanName.toUpperCase().startsWith('DEPTH') ||
+          cleanName.toUpperCase().startsWith('DER')) {
           continue;
         }
-        
+
         if (cleanName.length > 5) {
           allProductNames.push(cleanName);
         }
@@ -168,7 +168,7 @@ class DocextClient {
 
     // Match them up in order
     const maxCount = Math.max(allSkus.length, allUpcs.length, allProductNames.length);
-    
+
     for (let i = 0; i < maxCount; i++) {
       products.push({
         productName: allProductNames[i] || '',
@@ -178,7 +178,7 @@ class DocextClient {
     }
 
     console.log(`Final extracted products: ${products.length}`);
-    
+
     return products.slice(0, 100);
   }
 }
