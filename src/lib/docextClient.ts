@@ -96,139 +96,115 @@ class DocextClient {
     console.log('Raw text:', text.substring(0, 1000));
 
     // SKU and UPC patterns - expanded to include more formats
-    const skuPattern = /\b(122\d{10}|11\d{11}|148\d{10}|146\d{10}|143\d{10}|145\d{10})\b/g;
-    const upcPattern = /\b(\d{13,14})\b/g;
+    const skuPattern = /\b(122\d{10}|11\d{11}|148\d{10}|146\d{10}|143\d{10}|145\d{10}|150\d{10})\b/;
+    const upcPattern = /\b(0\d{12,13}|\d{13,14})\b/;
 
-    const allSkus: string[] = [];
-    const allUpcs: string[] = [];
-    const allProductNames: string[] = [];
+    const allProducts: Array<{name: string, sku: string, upc: string, lineIndex: number}> = [];
 
-    // Headers and labels to skip - only skip if line is MOSTLY these words
+    // Headers and labels to skip
     const skipWords = [
       'CHANGE', 'LOC ID', 'SKU NO', 'UPC', 'NAME', 'SHELF', 'DEPTH', 'DEPH', 'NOF',
       'TIER', 'NOTCH', 'GONDOLA', 'GONDOL', 'CATEGORY', 'DEPARTMENT', 'EPARTMENT',
       'VIEW BY', 'ELEMENT', 'STORE', 'STORE NA', 'HYPERMARKET', 'HYPERMA', 'STO', 'HYP',
-      'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT', 'ARTMENT'
+      'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT', 'ARTMENT',
+      'BREAKFAST', 'SEASONING', 'ADULT MILK'
     ];
 
-    // Process each line
-    for (const line of lines) {
+    // First pass: analyze each line and categorize
+    const productNameLines: Array<{text: string, index: number}> = [];
+    const skuLines: Array<{sku: string, index: number}> = [];
+    const upcLines: Array<{upc: string, index: number}> = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const upperLine = line.toUpperCase();
 
-      // Skip headers and labels (but be more specific - check if line STARTS with or IS the header)
+      // Skip headers
       let isHeader = false;
       for (const word of skipWords) {
-        if (upperLine === word || 
-            upperLine.startsWith(word + ':') || 
-            upperLine.startsWith(word + ' ') ||
-            upperLine.endsWith(' ' + word) ||
+        if (upperLine === word || upperLine.startsWith(word + ':') || 
+            upperLine.startsWith(word + ' ') || upperLine.endsWith(' ' + word) ||
             (upperLine.includes(':') && upperLine.includes(word))) {
           isHeader = true;
           break;
         }
       }
-      
-      if (isHeader) {
-        continue;
-      }
+      if (isHeader) continue;
 
-      // Skip standalone category words that aren't part of product names
+      // Skip specific patterns
       if (upperLine === 'CANNED' || upperLine === 'PET FOOD' || upperLine === 'FOOD' ||
-          upperLine === 'NT: CANNED' || upperLine === 'BY ELEMENT' || 
-          upperLine === 'LOC ID.' || upperLine === 'SKU NO.' ||
-          upperLine === 'MENT: CANNED' || upperLine.includes('... LOC ID') ||
-          upperLine === 'SEASONING' || upperLine.startsWith('SHELF/') || 
-          upperLine === 'HYPERMAR' || upperLine === 'HYPERMARKET') {
-        continue;
-      }
-      
-      // Skip lines that look like partial headers (end with colon + word)
-      if (/^[A-Z]{2,6}:\s*[A-Z\s]+$/.test(upperLine)) {
+          upperLine.startsWith('SHELF/') || upperLine.includes('... LOC ID') ||
+          line.trim().endsWith(':') || line.length < 5 ||
+          /^[A-Z]{2,6}:\s*[A-Z\s]+$/.test(upperLine)) {
         continue;
       }
 
-      // Skip lines ending with colon
-      if (line.trim().endsWith(':')) {
-        continue;
-      }
+      // Check what this line contains
+      const hasSku = skuPattern.test(line);
+      const skuMatch = line.match(skuPattern);
+      const hasUpc = upcPattern.test(line);
+      const upcMatches = line.match(new RegExp(upcPattern, 'g'));
+      const hasText = /[A-Za-z]{5,}/.test(line);
 
-      // Skip very short lines
-      if (line.length < 5) {
-        continue;
-      }
-
-      // Extract SKUs from this line
-      const skuMatches = line.match(skuPattern);
-      if (skuMatches) {
-        allSkus.push(...skuMatches);
-      }
-
-      // Extract UPCs from this line (but exclude SKUs)
-      const upcMatches = line.match(upcPattern);
-      if (upcMatches) {
-        // Only add UPCs that are NOT already identified as SKUs
-        const nonSkuUpcs = upcMatches.filter(upc => !skuMatches || !skuMatches.includes(upc));
-        allUpcs.push(...nonSkuUpcs);
-      }
-
-      // Extract product names (lines with letters, may or may not have SKU/UPC)
-      if (/[A-Za-z]{5,}/.test(line)) {
-        let cleanName = line;
+      // Line with SKU and UPC together - extract all from same line
+      if (hasSku && hasUpc && hasText) {
+        const sku = skuMatch ? skuMatch[0] : '';
+        const nonSkuUpcs = upcMatches ? upcMatches.filter(u => u !== sku) : [];
+        const upc = nonSkuUpcs.length > 0 ? nonSkuUpcs[0] : '';
         
-        // Remove SKU and UPC from the line to get clean product name
-        if (skuMatches) {
-          skuMatches.forEach(sku => {
-            cleanName = cleanName.replace(sku, '');
-          });
+        let name = line;
+        if (sku) name = name.replace(sku, '');
+        if (upc) name = name.replace(upc, '');
+        name = name.replace(/\s+/g, ' ').replace(/^\d+\s+/, '').trim();
+
+        if (name.length > 5 && !name.includes('..') && !/^[a-z]{3,6}\d*$/.test(name.toLowerCase())) {
+          products.push({ productName: name, skuNumber: sku, upc: upc });
         }
+      }
+      // Line is primarily a product name
+      else if (hasText && !hasSku && !hasUpc) {
+        let name = line.replace(/\s+/g, ' ').replace(/^\d+\s+/, '').trim();
+        if (name.length > 5 && !name.includes('..') && 
+            !name.toUpperCase().startsWith('DEPH') && !name.toUpperCase().startsWith('DEPTH') &&
+            !/^[a-z]{3,6}\d*$/.test(name.toLowerCase())) {
+          productNameLines.push({ text: name, index: i });
+        }
+      }
+      // Line is primarily SKU
+      else if (hasSku && !hasText) {
+        if (skuMatch) {
+          skuLines.push({ sku: skuMatch[0], index: i });
+        }
+      }
+      // Line is primarily UPC
+      else if (hasUpc && !hasText && !hasSku) {
         if (upcMatches) {
           upcMatches.forEach(upc => {
-            cleanName = cleanName.replace(upc, '');
+            upcLines.push({ upc: upc, index: i });
           });
-        }
-        
-        cleanName = cleanName
-          .replace(/\s+/g, ' ')
-          .replace(/^\d+\s+/, '')
-          .trim();
-
-        // Skip if it starts with depth marker
-        if (cleanName.toUpperCase().startsWith('DEPH') ||
-          cleanName.toUpperCase().startsWith('DEPTH') ||
-          cleanName.toUpperCase().startsWith('DER')) {
-          continue;
-        }
-        
-        // Skip if it looks like a shelf marker or partial header (contains ".." or is very short gibberish)
-        if (cleanName.includes('..') || 
-            /^[a-z]{3,6}\d*$/.test(cleanName.toLowerCase()) ||
-            cleanName.length < 4) {
-          continue;
-        }
-
-        if (cleanName.length > 5) {
-          allProductNames.push(cleanName);
         }
       }
     }
 
-    console.log(`Found ${allSkus.length} SKUs:`, allSkus);
-    console.log(`Found ${allUpcs.length} UPCs:`, allUpcs);
-    console.log(`Found ${allProductNames.length} product names:`, allProductNames);
+    // If we got data from same-line extraction, use that
+    if (products.length > 0) {
+      console.log(`Extracted ${products.length} products from same-line data`);
+      return products.slice(0, 100);
+    }
 
-    // Match them up in order
-    const maxCount = Math.max(allSkus.length, allUpcs.length, allProductNames.length);
-
+    // Otherwise, match by order (column-based OCR reading)
+    console.log(`Found ${productNameLines.length} names, ${skuLines.length} SKUs, ${upcLines.length} UPCs in separate lines`);
+    
+    const maxCount = Math.max(productNameLines.length, skuLines.length, upcLines.length);
     for (let i = 0; i < maxCount; i++) {
       products.push({
-        productName: allProductNames[i] || '',
-        skuNumber: allSkus[i] || '',
-        upc: allUpcs[i] || ''
+        productName: productNameLines[i]?.text || '',
+        skuNumber: skuLines[i]?.sku || '',
+        upc: upcLines[i]?.upc || ''
       });
     }
 
     console.log(`Final extracted products: ${products.length}`);
-
     return products.slice(0, 100);
   }
 }
