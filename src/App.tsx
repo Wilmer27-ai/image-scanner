@@ -198,11 +198,11 @@ function App() {
   }
 
   const handleCopyToClipboard = async () => {
-    const header = "Product Name\tSKU Number\tUPC"
+    // Only copy the data rows, exclude the header
     const rows = extractedProducts.map(product => 
       `${product.productName || ''}\t${product.skuNumber || ''}\t${product.upc || ''}`
     )
-    const tableText = [header, ...rows].join('\n')
+    const tableText = rows.join('\n')
     
     try {
       await navigator.clipboard.writeText(tableText)
