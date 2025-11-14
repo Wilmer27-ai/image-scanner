@@ -95,15 +95,11 @@ class DocextClient {
     console.log('Parsing lines:', lines.length);
     console.log('Raw text:', text.substring(0, 1000));
 
-    // SKU and UPC patterns - expanded to include more formats
-    // SKU: starts with 14, 12, or 11 and is 13 digits total
-    const skuPattern = /\b(14[0-9]\d{10}|12[0-9]\d{10}|11\d{11})\b/;
-    // UPC: 12-14 digit numbers (including those starting with 3, 0, or other digits)
-    const upcPattern = /\b(\d{12,14})\b/;
+    // SKU and UPC patterns
+    const skuPattern = /^(14\d{9,11}|12\d{9,11}|11\d{9,11})$/;  // SKU: 11-13 digits starting with 14, 12, or 11
+    const upcPattern = /^(\d{12,14})$/;
 
-    const allProducts: Array<{name: string, sku: string, upc: string, lineIndex: number}> = [];
-
-    // Headers and labels to skip
+    // Headers to skip
     const skipWords = [
       'CHANGE', 'LOC ID', 'SKU NO', 'UPC', 'NAME', 'SHELF', 'DEPTH', 'DEPH', 'NOF',
       'TIER', 'NOTCH', 'GONDOLA', 'GONDOL', 'CATEGORY', 'DEPARTMENT', 'EPARTMENT',
@@ -111,100 +107,109 @@ class DocextClient {
       'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT', 'ARTMENT',
       'BREAKFAST', 'SEASONING', 'ADULT MILK', 'TOILETRIES', 'HYGIENE', 
       'NEW ITEM', 'LISTING', 'SUMMARY', 'DISCONTINUE', 'CLEARANCE', 'PLAN',
-      'BABY AND KIDS', 'MAX QTY'
+      'BABY AND KIDS', 'MAX QTY', 'PIXEL', 'FIXEL', 'PRODUCT_ID', 'PRODUCT ID',
+      'NOTCH_POSITION', 'NOTCH POSITION', 'BABY MILK POWDER', 'BABY MEAL', 'LOC_ID',
+      'PIXEL_ID', 'FIXEL_ID'
+    ];
+    
+    const skipPatterns = [
+      /^FIXEL[_\s]?ID/i,
+      /^PIXEL[_\s]?ID/i, 
+      /^NOTCH[_\s]?POSITION/i,
+      /^LOC[_\s]?ID/i,
+      /^\d{1,3}$/,  // Short numbers only (row numbers like 13, 14, 15)
+      /^\d+\.\d+$/,  // Decimal numbers (like 3.1, 3.2)
+      /^[A-Z]{2,6}:\s*[A-Z\s]+$/
     ];
 
-    // First pass: analyze each line and categorize
-    const productNameLines: Array<{text: string, index: number}> = [];
-    const skuLines: Array<{sku: string, index: number}> = [];
-    const upcLines: Array<{upc: string, index: number}> = [];
+    // Collect data by type
+    const upcs: string[] = [];
+    const skus: string[] = [];
+    const names: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const line = lines[i].trim();
       const upperLine = line.toUpperCase();
 
       // Skip headers
-      let isHeader = false;
-      for (const word of skipWords) {
-        if (upperLine === word || upperLine.startsWith(word + ':') || 
-            upperLine.startsWith(word + ' ') || upperLine.endsWith(' ' + word) ||
-            (upperLine.includes(':') && upperLine.includes(word))) {
-          isHeader = true;
-          break;
-        }
-      }
-      if (isHeader) continue;
-
-      // Skip specific patterns
-      if (upperLine === 'CANNED' || upperLine === 'PET FOOD' || upperLine === 'FOOD' ||
-          upperLine.startsWith('SHELF/') || upperLine.includes('... LOC ID') ||
-          line.trim().endsWith(':') || line.length < 5 ||
-          /^[A-Z]{2,6}:\s*[A-Z\s]+$/.test(upperLine)) {
+      if (skipWords.some(word => 
+        upperLine === word || 
+        upperLine.includes(word + ':') || 
+        upperLine.startsWith(word + ' ') ||
+        upperLine.endsWith(' ' + word)
+      )) {
         continue;
       }
 
-      // Check what this line contains
-      const hasSku = skuPattern.test(line);
-      const skuMatch = line.match(skuPattern);
-      const hasUpc = upcPattern.test(line);
-      const upcMatches = line.match(new RegExp(upcPattern, 'g'));
-      const hasText = /[A-Za-z]{5,}/.test(line);
+      // Skip patterns
+      if (skipPatterns.some(pattern => pattern.test(line))) {
+        continue;
+      }
 
-      // Line with SKU and UPC together - extract all from same line
-      if (hasSku && hasUpc && hasText) {
-        const sku = skuMatch ? skuMatch[0] : '';
-        const nonSkuUpcs = upcMatches ? upcMatches.filter(u => u !== sku) : [];
-        const upc = nonSkuUpcs.length > 0 ? nonSkuUpcs[0] : '';
+      // Check if this is a standalone UPC
+      if (upcPattern.test(line)) {
+        const num = line.match(upcPattern)?.[0];
+        if (num && !skuPattern.test(num)) {
+          upcs.push(num);
+          console.log(`UPC found: ${num}`);
+          continue;
+        }
+      }
+
+      // Check if this is a standalone SKU
+      if (skuPattern.test(line)) {
+        const num = line.match(skuPattern)?.[0];
+        if (num) {
+          skus.push(num);
+          console.log(`SKU found: ${num}`);
+          continue;
+        }
+      }
+
+      // Check if this line has all three (row format)
+      const allNumbers = line.match(/\b\d{11,14}\b/g) || [];
+      const skuMatch = line.match(/\b(14\d{9,11}|12\d{9,11}|11\d{9,11})\b/);
+      
+      if (allNumbers.length >= 2 && skuMatch) {
+        // This line has UPC, SKU, and likely name
+        const sku = skuMatch[0];
+        const upc = allNumbers.find(n => n !== sku) || '';
+        let name = line.replace(sku, '').replace(upc, '');
+        name = name.replace(/\s+/g, ' ').replace(/^\d+\s+/, '').replace(/[•·]/, '').trim();
         
-        let name = line;
-        if (sku) name = name.replace(sku, '');
-        if (upc) name = name.replace(upc, '');
-        name = name.replace(/\s+/g, ' ').replace(/^\d+\s+/, '').trim();
-
-        if (name.length > 5 && !name.includes('..') && !/^[a-z]{3,6}\d*$/.test(name.toLowerCase())) {
+        if (name.length > 3 && /[A-Za-z]{3,}/.test(name)) {
           products.push({ productName: name, skuNumber: sku, upc: upc });
+          console.log(`Row format found: UPC="${upc}", SKU="${sku}", Name="${name}"`);
+          continue;
         }
       }
-      // Line is primarily a product name
-      else if (hasText && !hasSku && !hasUpc) {
-        let name = line.replace(/\s+/g, ' ').replace(/^\d+\s+/, '').trim();
-        if (name.length > 5 && !name.includes('..') && 
-            !name.toUpperCase().startsWith('DEPH') && !name.toUpperCase().startsWith('DEPTH') &&
-            !/^[a-z]{3,6}\d*$/.test(name.toLowerCase())) {
-          productNameLines.push({ text: name, index: i });
-        }
-      }
-      // Line is primarily SKU
-      else if (hasSku && !hasText) {
-        if (skuMatch) {
-          skuLines.push({ sku: skuMatch[0], index: i });
-        }
-      }
-      // Line is primarily UPC
-      else if (hasUpc && !hasText && !hasSku) {
-        if (upcMatches) {
-          upcMatches.forEach(upc => {
-            upcLines.push({ upc: upc, index: i });
-          });
-        }
+
+      // Otherwise, check if it's a product name
+      if (line.length > 5 && /[A-Za-z]{5,}/.test(line) && 
+          !/^[a-z]{2,6}\d*$/i.test(line) && !line.includes('..')) {
+        names.push(line);
+        console.log(`Name found: ${line}`);
       }
     }
 
-    // If we got data from same-line extraction, use that
+    console.log(`Column-based extraction: ${upcs.length} UPCs, ${skus.length} SKUs, ${names.length} Names`);
+    console.log(`Row-based extraction: ${products.length} products`);
+
+    // If we got row-based data, return it
     if (products.length > 0) {
-      console.log(`Extracted ${products.length} products from same-line data`);
+      console.log(`Using row-based data: ${products.length} products`);
       return products.slice(0, 100);
     }
 
-    // Otherwise, match by order (column-based OCR reading)
-    console.log(`Found ${productNameLines.length} names, ${skuLines.length} SKUs, ${upcLines.length} UPCs in separate lines`);
-    
-    const maxCount = Math.max(productNameLines.length, skuLines.length, upcLines.length);
+    // Otherwise, match columns by index
+    const maxCount = Math.max(upcs.length, skus.length, names.length);
+    console.log(`Matching ${maxCount} products by column position`);
+
     for (let i = 0; i < maxCount; i++) {
       products.push({
-        productName: productNameLines[i]?.text || '',
-        skuNumber: skuLines[i]?.sku || '',
-        upc: upcLines[i]?.upc || ''
+        productName: names[i] || '',
+        skuNumber: skus[i] || '',
+        upc: upcs[i] || ''
       });
     }
 
