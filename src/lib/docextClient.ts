@@ -96,8 +96,10 @@ class DocextClient {
     console.log('Raw text:', text.substring(0, 1000));
 
     // SKU and UPC patterns - expanded to include more formats
+    // SKU: starts with 14, 12, or 11 and is 13 digits total
     const skuPattern = /\b(14[0-9]\d{10}|12[0-9]\d{10}|11\d{11})\b/;
-    const upcPattern = /\b(0\d{12,13}|\d{13,14})\b/;
+    // UPC: 12-14 digit numbers (including those starting with 3, 0, or other digits)
+    const upcPattern = /\b(\d{12,14})\b/;
 
     const allProducts: Array<{name: string, sku: string, upc: string, lineIndex: number}> = [];
 
