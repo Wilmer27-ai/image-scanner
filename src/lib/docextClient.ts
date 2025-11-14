@@ -96,7 +96,7 @@ class DocextClient {
     console.log('Raw text:', text.substring(0, 1000));
 
     // SKU and UPC patterns - expanded to include more formats
-    const skuPattern = /\b(122\d{10}|11\d{11}|148\d{10}|146\d{10}|143\d{10}|145\d{10}|150\d{10})\b/;
+    const skuPattern = /\b(14[0-9]\d{10}|12[0-9]\d{10}|11\d{11})\b/;
     const upcPattern = /\b(0\d{12,13}|\d{13,14})\b/;
 
     const allProducts: Array<{name: string, sku: string, upc: string, lineIndex: number}> = [];
@@ -107,7 +107,9 @@ class DocextClient {
       'TIER', 'NOTCH', 'GONDOLA', 'GONDOL', 'CATEGORY', 'DEPARTMENT', 'EPARTMENT',
       'VIEW BY', 'ELEMENT', 'STORE', 'STORE NA', 'HYPERMARKET', 'HYPERMA', 'STO', 'HYP',
       'LOCATION', 'BRAND', 'PAPER', 'LOW BUD', 'BUD', 'PARTMENT', 'ARTMENT',
-      'BREAKFAST', 'SEASONING', 'ADULT MILK'
+      'BREAKFAST', 'SEASONING', 'ADULT MILK', 'TOILETRIES', 'HYGIENE', 
+      'NEW ITEM', 'LISTING', 'SUMMARY', 'DISCONTINUE', 'CLEARANCE', 'PLAN',
+      'BABY AND KIDS', 'MAX QTY'
     ];
 
     // First pass: analyze each line and categorize
